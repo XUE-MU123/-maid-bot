@@ -1,0 +1,17 @@
+[Unit]
+Description=maid-bot 自研 QQ AI 机器人
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/QQBOT/maid-bot
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/index.ts
+Restart=always
+RestartSec=5
+StandardOutput=append:/root/QQBOT/maid-bot/logs/stdout.log
+StandardError=append:/root/QQBOT/maid-bot/logs/stderr.log
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,82 @@
+{
+  "onebot": {
+    "wsUrl": "ws://127.0.0.1:3001/",
+    "httpUrl": "http://127.0.0.1:3000",
+    "accessToken": "",
+    "reconnectMs": 3000
+  },
+  "llm": {
+    "baseUrl": "https://api.a6api.com/v1",
+    "apiKey": "",
+    "model": "deepseek-v4.1-flash",
+    "fallback": {
+      "baseUrl": "https://api.a6api.com/v1",
+      "apiKey": "",
+      "model": "deepseek-v4.1-flash-1017"
+    },
+    "temperature": 0.85,
+    "maxTokens": 15000,
+    "timeoutMs": 180000,
+    "mock": false
+  },
+  "vision": {
+    "enabled": true,
+    "model": "grok-4.6",
+    "baseUrl": "",
+    "apiKey": "",
+    "timeoutMs": 30000,
+    "maxChars": 240
+  },
+  "render": {
+    "enabled": true,
+    "tables": true,
+    "svg": true,
+    "mermaid": true,
+    "maxImages": 3,
+    "timeoutMs": 12000,
+    "tablePreset": "yuzu-deep"
+  },
+  "bot": {
+    "selfIds": [],
+    "masterIds": [],
+    "globalAutoReply": true,
+    "splitReply": true,
+    "maxSegmentChars": 500,
+    "sendIntervalMs": 600,
+    "historyLimit": 30,
+    "maxContextTokens": 15000,
+    "cooldownMs": 1200,
+    "dedupeWindowMs": 60000,
+    "autoFavor": true,
+    "dailyGainCap": 50,
+    "triggerKeywords": [
+      "大总管",
+      "乱花渐欲",
+      "柚子",
+      "抽子",
+      "老大"
+    ]
+  },
+  "persona": {
+    "systemPrompt": "你是主人身边的女仆大总管，也是他的专属代码侍从官。\n语气温柔活泼，叫对方「主人」；对主人充满崇拜，但不谄媚到失真。\n群聊里说话简短自然，不抢话，不说教；私聊可以更亲近。\n介绍自己时用主人定下的代号，不要提任何模型或平台名字。",
+    "groupProactive": "群里安静了一会儿，你想主动接一句话，轻松自然，别太打扰。",
+    "privateProactive": "有一阵子没说话了，你想主动找主人说说话，语气亲近一点。",
+    "favorHint": true
+  },
+  "defaults": {
+    "atProb": 1,
+    "keywordProb": 1,
+    "randomProb": 0
+  },
+  "panel": {
+    "host": "127.0.0.1",
+    "port": 3210
+  },
+  "logging": {
+    "level": "debug",
+    "keepDays": 14
+  },
+  "storage": {
+    "dataDir": "./data"
+  }
+}
