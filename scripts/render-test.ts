@@ -37,5 +37,26 @@ check('生成了 1 张图', r.images.length === 1, String(r.images.length));
 const u = mermaidUrl('flowchart LR\n A-->B');
 check('mermaid 链接格式正确', u.startsWith('https://mermaid.ink/img/pako:'), u.slice(0, 40));
 
+// 6) 画布尺寸：模型自己定比例，超上限等比缩，不裁内容
+const wide = await renderDraw('@2400x1600 #FFFFFF\nC 1200,800 400 F #4A90D9');
+check('横图按指定尺寸出', wide.width === 2400 && wide.height === 1600, `${wide.width}x${wide.height}`);
+const tall = await renderDraw('@1600x2400 #FFFFFF\nC 800,1200 400 F #4A90D9');
+check('竖图按指定尺寸出', tall.width === 1600 && tall.height === 2400, `${tall.width}x${tall.height}`);
+const huge = await renderDraw('@6000x3000 #FFFFFF\nC 3000,1500 400 F #4A90D9');
+check('超上限等比缩到 4096，比例不变',
+  huge.width === 4096 && huge.height === 2048, `${huge.width}x${huge.height}`);
+
+// 7) 弧线语法：第二对坐标是弧心（嘴巴画歪就是这里写错）
+const arcOk = await renderDraw('@600x600 #FFF\nA 420,300 300,300 120,180 S #C06080 10');
+check('弧线按「起点+弧心」画成功', arcOk.failed.length === 0, JSON.stringify(arcOk.failed));
+const arcBad = await renderDraw('@600x600 #FFF\nA 180,300 420,300 120,180 S #C06080 10');
+check('把终点当弧心会被拦下并报错', arcBad.failed.length === 1, JSON.stringify(arcBad.failed));
+
+// 8) 圆环：内外半径不能相同，否则是厚度 0 的空环
+const ringOk = await renderDraw('@600x600 #FFF\nRING 300,300 250,180 F #6C5CE7');
+check('圆环正常出图', ringOk.failed.length === 0, JSON.stringify(ringOk.failed));
+const ringBad = await renderDraw('@600x600 #FFF\nRING 300,300 610,610 F #FFD166');
+check('内外半径相同会被拦下并报错', ringBad.failed.length === 1, JSON.stringify(ringBad.failed));
+
 console.log(`\n结果：通过 ${pass}，失败 ${fail}`);
 process.exit(fail === 0 ? 0 : 1);

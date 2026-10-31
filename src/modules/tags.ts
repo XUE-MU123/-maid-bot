@@ -7,7 +7,7 @@ import type { ToolContext } from './context.ts';
 const log = makeLogger('tags');
 
 export interface TagAction {
-  kind: 'ban' | 'unban' | 'whole_ban' | 'whole_unban' | 'kick' | 'kick_black' | 'recall';
+  kind: 'ban' | 'unban' | 'whole_ban' | 'whole_unban' | 'recall';
   userId?: string;
   seconds?: number;
   enable?: boolean;
@@ -28,6 +28,10 @@ export interface ParsedTags {
   mentions: string[];
   replyTo: string | null;
   images: string[];
+  /** [不理 QQ] 这个人以后的消息直接跳过 */
+  ignore: string | null;
+  /** [理会 QQ] 解除 */
+  unignore: string | null;
 }
 
 const clampInt = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, Math.round(n)));
@@ -58,6 +62,8 @@ function interpretTag(rawContent: string): {
   mention?: string;
   replyTo?: string;
   image?: string;
+  ignore?: string;
+  unignore?: string;
 } | null {
   const s = toHalfWidth(rawContent);
   if (!s) return null;
@@ -70,10 +76,12 @@ function interpretTag(rawContent: string): {
   }
   const unban = /^(?:解禁|解除禁言)\s*(\d{1,15})$/.exec(s);
   if (unban) return { action: { kind: 'unban', userId: unban[1] } };
-  const kickBlack = /^(?:踢黑|踢出拉黑|拉黑踢出)\s*(\d{1,15})$/.exec(s);
-  if (kickBlack) return { action: { kind: 'kick_black', userId: kickBlack[1] } };
-  const kick = /^(?:踢出|踢)\s*(\d{1,15})$/.exec(s);
-  if (kick) return { action: { kind: 'kick', userId: kick[1] } };
+  // 不想理某人 / 重新理会
+  const ignore = /^(?:不理|无视|忽略)\s*(\d{1,15})$/.exec(s);
+  if (ignore) return { ignore: ignore[1] };
+  const unignore = /^(?:理会|恢复理会|重新理会|解除不理)\s*(\d{1,15})$/.exec(s);
+  if (unignore) return { unignore: unignore[1] };
+
   const recall = /^(?:撤回|删除消息)\s*(\d{1,20})$/.exec(s);
   if (recall) return { action: { kind: 'recall', msgId: recall[1] } };
   if (/^(?:全员禁言|全体禁言|开启全员禁言)$/.test(s)) return { action: { kind: 'whole_ban', enable: true } };
@@ -117,6 +125,8 @@ export function parseTags(text: string): ParsedTags {
     mentions: [],
     replyTo: null,
     images: [],
+    ignore: null,
+    unignore: null,
   };
   const src = typeof text === 'string' ? text : '';
   if (!src) return out;
@@ -135,6 +145,8 @@ export function parseTags(text: string): ParsedTags {
     else if (hit.mention) out.mentions.push(hit.mention);
     else if (hit.replyTo) out.replyTo = hit.replyTo;
     else if (hit.image) out.images.push(hit.image);
+    else if (hit.ignore) out.ignore = hit.ignore;
+    else if (hit.unignore) out.unignore = hit.unignore;
     else if (hit.favorDelta) {
       // 多个好感标签累加，理由用「；」拼接
       out.favorDelta = clampInt((out.favorDelta ?? 0) + hit.favorDelta.delta, TAG_FAVOR_MIN, TAG_FAVOR_MAX);
@@ -150,6 +162,10 @@ export function parseTags(text: string): ParsedTags {
     }
   }
   kept += src.slice(last);
+
+  // 她自己爱写 [原因：xxx] 当解释，这不是可执行标签，但会原样发进群里。
+  // 这类"说明性方括号"直接摘掉，正文里要解释就用普通话写。
+  kept = kept.replace(/[（(]?\s*\[\s*原因\s*[:：][^\[\]]{0,80}\]\s*[）)]?/g, ' ');
 
   // 标签摘掉后收拾一下空白，别留一堆空行和双空格
   out.text = kept
@@ -169,8 +185,6 @@ const KIND_LABEL: Record<TagAction['kind'], string> = {
   unban: '解禁',
   whole_ban: '全员禁言',
   whole_unban: '全员解禁',
-  kick: '踢人',
-  kick_black: '踢人拉黑',
   recall: '撤回',
 };
 
@@ -188,7 +202,7 @@ export async function executeTagActions(actions: TagAction[], ctx: ToolContext):
   for (const act of actions) {
     const label = KIND_LABEL[act.kind] ?? '操作';
     try {
-      // 撤回私聊也能用；禁言/踢人/全员禁言属于群管动作，必须群聊 + 管理员
+      // 撤回私聊也能用；禁言/全员禁言属于群管动作，必须群聊 + 管理员
       if (act.kind !== 'recall') {
         if (!isGroup) {
           results.push(`${label}失败：只能在群聊里做。`);
@@ -238,24 +252,6 @@ export async function executeTagActions(actions: TagAction[], ctx: ToolContext):
           await ctx.client.setGroupWholeBan(ctx.msg.targetId, enable);
           ctx.note(`标签全员禁言 ${enable ? '开' : '关'}`);
           results.push(enable ? '已开启全员禁言。' : '已解除全员禁言。');
-          break;
-        }
-        case 'kick':
-        case 'kick_black': {
-          const target = act.userId ?? '';
-          if (!target || !isQq(target)) {
-            results.push(`${label}失败：QQ 号 ${target || '（空）'} 看起来不对。`);
-            break;
-          }
-          const blocked = protectedTarget(ctx, target);
-          if (blocked) {
-            results.push(`${label}失败：${blocked}`);
-            break;
-          }
-          const black = act.kind === 'kick_black';
-          await ctx.client.kickGroupMember(ctx.msg.targetId, target, black);
-          ctx.note(`标签踢出 ${target}${black ? '（拉黑）' : ''}`);
-          results.push(`已把 ${target} 请出群聊${black ? '，并拒绝再次加群' : ''}。`);
           break;
         }
         case 'recall': {

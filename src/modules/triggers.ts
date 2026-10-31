@@ -21,7 +21,7 @@ export function decideTrigger(
   session: Session,
   config: Config,
   botNames: string[],
-  opts: { quotedIsSelf?: boolean } = {},
+  opts: { quotedIsSelf?: boolean; rawText?: string } = {},
 ): TriggerResult {
   // 私聊：默认每次都回（一对一聊天没必要摇概率）
   if (session.type === 'private') {
@@ -46,8 +46,8 @@ export function decideTrigger(
       : { hit: false, kind: null, reason: '被引用但概率未命中' };
   }
 
-  // 3. 关键词命中
-  const text = msg.text.toLowerCase();
+  // 3. 关键词命中（用原文，不含展开后的 @ 身份牌，避免别人 @ 老大变成叫她）
+  const text = String(opts.rawText ?? msg.text).toLowerCase();
   // 会话自己配了关键词就只认它自己的，没配才用全局 + 机器人名字
   const own = String(session.keywords || '')
     .split(/[,，\s]+/)

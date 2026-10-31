@@ -5,6 +5,7 @@ import { openDb } from './core/db.ts';
 import { OneBotClient } from './onebot/client.ts';
 import { Pipeline } from './modules/pipeline.ts';
 import { startPanel } from './server/panel.ts';
+import { migrateLegacyIgnores } from './modules/ignore.ts';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -24,6 +25,7 @@ async function main(): Promise<void> {
   }
 
   const db = openDb(resolve(ROOT, config.storage.dataDir.replace(/^\.\//, '')));
+  migrateLegacyIgnores(db);   // 老的不理记录（存在 meta 里）搬到 ignore_state 表
   const client = new OneBotClient(config);
   const pipeline = new Pipeline({ config, db, client });
 

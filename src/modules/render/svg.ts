@@ -40,9 +40,25 @@ export function renderSvg(svgText: string, opts: { maxSize?: number; expandPathI
     });
   }
 
-  const max = opts.maxSize ?? 2400;
+  // 尺寸由 SVG 自己决定：按它自己的长宽比，把长边缩到上限。
+  // 以前固定按宽度缩，竖长图会被拉成好几千像素高，QQ 直接裁掉底部。
+  const max = opts.maxSize ?? 4096;
+  const vb = /viewBox\s*=\s*["']([^"']+)["']/i.exec(svg);
+  let ratio = 1;
+  if (vb) {
+    const nums = vb[1].trim().split(/[\s,]+/).map(Number);
+    if (nums.length === 4 && nums[2] > 0 && nums[3] > 0) ratio = nums[2] / nums[3];
+  } else {
+    const wAttr = /\swidth\s*=\s*["']([\d.]+)/i.exec(svg);
+    const hAttr = /\sheight\s*=\s*["']([\d.]+)/i.exec(svg);
+    if (wAttr && hAttr && Number(hAttr[1]) > 0) ratio = Number(wAttr[1]) / Number(hAttr[1]);
+  }
+  const fitTo = ratio >= 1
+    ? ({ mode: 'width', value: max } as const)
+    : ({ mode: 'height', value: max } as const);
+
   const resvg = new Resvg(svg, {
-    fitTo: { mode: 'width', value: max },
+    fitTo,
     font: {
       fontDirs: ['/usr/share/fonts'],
       loadSystemFonts: true,

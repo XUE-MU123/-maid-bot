@@ -8,9 +8,11 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { makeLogger } from '../core/logger.ts';
+import { isMasterQq } from '../core/config.ts';
+import { listIgnores, releaseIgnore } from '../modules/ignore.ts';
 import { maskKey } from '../core/util.ts';
 import type { DB } from '../core/db.ts';
-import type { Config, Session } from '../core/types.ts';
+import type { Config, LLMProfile, Session } from '../core/types.ts';
 import type { OneBotClient } from '../onebot/client.ts';
 import { deleteSession, getSession, listSessions, updateSession } from '../modules/session.ts';
 import { clearMemory, effectiveKey, historyStats, messageCount, recentMessages, searchHistory } from '../modules/memory.ts';
@@ -268,7 +270,27 @@ function maskedConfig(config: Config): Config {
   copy.vision.apiKey = maskKey(copy.vision.apiKey);
   copy.llm.fallback.apiKey = maskKey(copy.llm.fallback.apiKey);
   copy.onebot.accessToken = maskKey(copy.onebot.accessToken);
+  // 每份接口档案的 Key 同样打码，浏览器永远拿不到真 Key
+  copy.llm.profiles = (copy.llm.profiles ?? []).map((p) => ({ ...p, apiKey: maskKey(p.apiKey) }));
   return copy;
+}
+
+/** 接口档案的 ID：时间戳 + 随机尾巴，够用且不会撞 */
+function newProfileId(): string {
+  return `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** 档案名去重：重名自动加「(2)」「(3)」，免得下拉框里两行一模一样分不清 */
+function uniqueProfileName(config: Config, name: string, exceptId = ''): string {
+  const taken = new Set(
+    (config.llm.profiles ?? []).filter((p) => p.id !== exceptId).map((p) => p.name),
+  );
+  if (!taken.has(name)) return name;
+  for (let i = 2; i < 100; i++) {
+    const candidate = `${name} (${i})`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${name} (${Date.now()})`;
 }
 
 // ---------- 配置白名单更新 ----------
@@ -817,6 +839,45 @@ export async function startPanel(deps: PanelDeps): Promise<PanelHandle> {
     }
 
     // ===== 好感度 =====
+    // ===== 不理名单 =====
+    if (pathname === '/api/ignores' && method === 'GET') {
+      const rows = listIgnores(deps.db);
+      const nicks = nickMap(deps.db);
+      const sessions = safe(() => listSessions(deps.db), [], '读取会话');
+      const nameOf = new Map<string, string>();
+      for (const s of sessions) nameOf.set(s.key, s.name || s.key);
+      const list = rows.map((r) => ({
+        ...r,
+        nickname: nicks.get(r.qq) || '',
+        avatar: avatarOf('private', r.qq),
+        sessionName: nameOf.get(r.sessionKey) || r.sessionKey,
+        remainText: r.forever ? '永久' : r.durationText,
+        untilText: r.forever ? '不自动解除' : new Date(r.until).toLocaleString('zh-CN', { hour12: false }),
+        times: r.times,
+      }));
+      sendJson(res, 200, { ok: true, ignores: list });
+      return;
+    }
+
+    if (pathname === '/api/ignores' && method === 'POST') {
+      const body = await readJson(req);
+      const sessionKey = String(body.sessionKey ?? '').trim();
+      const qq = String(body.qq ?? '').trim();
+      const action = String(body.action ?? 'release').trim();
+      if (!sessionKey || !/^\d{4,12}$/.test(qq)) {
+        fail(res, 400, '会话或 QQ 号不对');
+        return;
+      }
+      if (action === 'release') {
+        releaseIgnore(deps.db, sessionKey, qq, '面板');
+        log.info(`面板解除不理：${sessionKey} / ${qq}`);
+        sendJson(res, 200, { ok: true, released: true });
+        return;
+      }
+      fail(res, 400, '只支持解除');
+      return;
+    }
+
     if (pathname === '/api/favors' && method === 'GET') {
       const favors = safe(() => listFavors(deps.db, 200, deps.config.bot.masterIds), [], '读取好感度');
       const nicks = nickMap(deps.db);
@@ -848,7 +909,7 @@ export async function startPanel(deps: PanelDeps): Promise<PanelHandle> {
         fail(res, 500, `改分失败：${String((err as Error)?.message ?? err)}`);
         return;
       }
-      const isMaster = deps.config.bot.masterIds.includes(qq);
+      const isMaster = isMasterQq(qq, deps.config.bot.masterIds);
       const favor = safe(() => getFavor(deps.db, qq, isMaster), null, '读取好感度');
       log.info(`好感度手动调整：${qq} → ${value}`);
       sendJson(res, 200, { ok: true, qq, score: value, favor });
@@ -939,6 +1000,87 @@ export async function startPanel(deps: PanelDeps): Promise<PanelHandle> {
       } finally {
         clearTimeout(timer);
       }
+      return;
+    }
+
+    // ===== 接口档案：把多份 API 存起来，用下拉框一键切换，不用每次重填 =====
+    // 存一份新档案。Key 留空或传打码值 = 沿用当前主接口的 Key
+    if (pathname === '/api/llm/profiles' && method === 'POST') {
+      const body = await readJson(req);
+      const baseUrl = (asStr(body.baseUrl) ?? '').trim();
+      const model = (asStr(body.model) ?? '').trim();
+      const nameIn = (asStr(body.name) ?? '').trim();
+      const keyIn = (asStr(body.apiKey) ?? '').trim();
+      if (!baseUrl) { fail(res, 400, '先填接口地址再存档案'); return; }
+      if (!model) { fail(res, 400, '先填模型名再存档案'); return; }
+      const apiKey = isKeepKey(keyIn) ? deps.config.llm.apiKey : keyIn;
+      if (!apiKey) { fail(res, 400, '还没有 API Key，填一个再存'); return; }
+
+      const profile: LLMProfile = {
+        id: newProfileId(),
+        name: uniqueProfileName(deps.config, nameIn || model),
+        baseUrl,
+        model,
+        apiKey,
+      };
+      deps.config.llm.profiles = [...(deps.config.llm.profiles ?? []), profile];
+      try {
+        deps.saveConfig();
+      } catch (err) {
+        fail(res, 500, `配置写回失败：${String((err as Error)?.message ?? err)}`);
+        return;
+      }
+      log.info(`接口档案已保存：${profile.name}（${profile.model}）`);
+      sendJson(res, 200, {
+        ok: true,
+        note: `已存为「${profile.name}」`,
+        config: maskedConfig(deps.config),
+      });
+      return;
+    }
+
+    // 切换到某份档案：填回主接口三项，改完立刻生效（不用重启）
+    if (pathname === '/api/llm/profiles/apply' && method === 'POST') {
+      const body = await readJson(req);
+      const id = (asStr(body.id) ?? '').trim();
+      const p = (deps.config.llm.profiles ?? []).find((x) => x.id === id);
+      if (!p) { fail(res, 404, '找不到这份档案，可能已经被删掉了'); return; }
+
+      deps.config.llm.baseUrl = p.baseUrl;
+      deps.config.llm.model = p.model;
+      deps.config.llm.apiKey = p.apiKey;
+      try {
+        deps.saveConfig();
+      } catch (err) {
+        fail(res, 500, `配置写回失败：${String((err as Error)?.message ?? err)}`);
+        return;
+      }
+      log.info(`已切换到接口档案：${p.name}（${p.model}）`);
+      sendJson(res, 200, {
+        ok: true,
+        note: `已切换到「${p.name}」，马上生效`,
+        config: maskedConfig(deps.config),
+      });
+      return;
+    }
+
+    // 删除某份档案（只删存档，不动当前正在用的配置）
+    if (pathname === '/api/llm/profiles/delete' && method === 'POST') {
+      const body = await readJson(req);
+      const id = (asStr(body.id) ?? '').trim();
+      const list = deps.config.llm.profiles ?? [];
+      const p = list.find((x) => x.id === id);
+      if (!p) { fail(res, 404, '找不到这份档案，可能已经删过了'); return; }
+
+      deps.config.llm.profiles = list.filter((x) => x.id !== id);
+      try {
+        deps.saveConfig();
+      } catch (err) {
+        fail(res, 500, `配置写回失败：${String((err as Error)?.message ?? err)}`);
+        return;
+      }
+      log.info(`接口档案已删除：${p.name}`);
+      sendJson(res, 200, { ok: true, note: `已删除「${p.name}」`, config: maskedConfig(deps.config) });
       return;
     }
 

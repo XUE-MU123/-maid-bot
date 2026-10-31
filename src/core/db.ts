@@ -82,6 +82,15 @@ function migrate(db: DB): void {
     );
     CREATE INDEX IF NOT EXISTS idx_msg_session ON messages(session_key, id);
     CREATE INDEX IF NOT EXISTS idx_msg_created ON messages(created_at);
+    -- 不理名单：保留每一次记录，times 只增不减；until=0 表示当前没在生效
+    CREATE TABLE IF NOT EXISTS ignore_state (
+      session_key TEXT NOT NULL,
+      qq          TEXT NOT NULL,
+      times       INTEGER NOT NULL DEFAULT 0,
+      until       INTEGER NOT NULL DEFAULT 0,
+      last_at     INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (session_key, qq)
+    );
     CREATE TABLE IF NOT EXISTS favor (
       qq          TEXT PRIMARY KEY,
       score       INTEGER NOT NULL DEFAULT 0,
@@ -130,6 +139,34 @@ function migrate(db: DB): void {
     );
   `);
   addColumnIfMissing(db, 'sessions', 'keywords', "keywords TEXT NOT NULL DEFAULT ''");
+  // 身份三件套：群身份、群头衔、会话标记。老库补列，读取时空值当没有
+  addColumnIfMissing(db, 'messages', 'sender_role', 'sender_role TEXT');
+  addColumnIfMissing(db, 'messages', 'sender_title', 'sender_title TEXT');
+  addColumnIfMissing(db, 'messages', 'dialog_tag', 'dialog_tag TEXT');
 }
 
 export function now(): number { return Date.now(); }
+
+/** 读一条 key-value（meta 表），没有就返回 null */
+export function getMeta(db: DB, key: string): string | null {
+  try {
+    const row = db.prepare('SELECT value FROM meta WHERE key = ?').get(key) as { value?: string } | undefined;
+    return row && row.value !== undefined ? String(row.value) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 写一条 key-value，空值就当删除 */
+export function setMeta(db: DB, key: string, value: string | null): void {
+  try {
+    if (value === null) {
+      db.prepare('DELETE FROM meta WHERE key = ?').run(key);
+      return;
+    }
+    db.prepare('INSERT INTO meta (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+      .run(key, value);
+  } catch {
+    /* meta 只是辅助，写不进不影响主流程 */
+  }
+}

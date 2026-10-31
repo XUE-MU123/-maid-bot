@@ -22,3 +22,14 @@ tmp/
 # 本地部署笔记（含服务器 IP / QQ 号，不进仓库）
 docs/DEPLOY-local.md
 README.local.md
+
+# 交接文档（含服务器 IP / QQ 号，只在本地用）
+docs/HANDOVER.md
+
+# 版本历史快照（本地留档，不进仓库）
+version_history/
+
+# 面板临时备份
+web/*.bak-*
+*.bak-adaptive
+docs/新会话开场白.txt

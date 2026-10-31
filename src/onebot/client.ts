@@ -201,12 +201,6 @@ export class OneBotClient extends EventEmitter {
     await this.call('set_group_whole_ban', { group_id: Number(groupId), enable });
   }
 
-  async kickGroupMember(groupId: string, userId: string, rejectAddRequest = false): Promise<void> {
-    await this.call('set_group_kick', {
-      group_id: Number(groupId), user_id: Number(userId), reject_add_request: rejectAddRequest,
-    });
-  }
-
   async deleteMsg(messageId: string): Promise<void> {
     await this.call('delete_msg', { message_id: Number(messageId) });
   }

@@ -113,24 +113,37 @@ export async function renderDraw(code: string, assets: DrawAssets = {}): Promise
     if (toks[3] && /^[VHDR]$/i.test(toks[3].raw)) bgDir = toks[3].raw.toUpperCase();
     idx = 1;
   }
-  W = Math.max(200, Math.min(2400, W));
-  H = Math.max(200, Math.min(2400, H));
+  // 尺寸交给模型自己定，这里只做安全兜底：
+  // 太小看不清、太大 QQ 会裁且上传慢。超限时整体等比缩放，坐标空间不变，
+  // 所以模型按 @宽x高 算的坐标不会跑出画布，也不会被拉歪。
+  const MAX_SIDE = 4096;
+  const MIN_SIDE = 200;
+  const longest = Math.max(W, H);
+  const shortest = Math.min(W, H);
+  let fit = 1;
+  if (longest > MAX_SIDE) fit = MAX_SIDE / longest;
+  else if (shortest < MIN_SIDE) fit = MIN_SIDE / shortest;
+  const cw = Math.max(MIN_SIDE, Math.round(W * fit));
+  const ch = Math.max(MIN_SIDE, Math.round(H * fit));
 
-  const { canvas, ctx } = newCanvas(W, H);
+  const { canvas, ctx } = newCanvas(cw, ch);
 
-  // 背景
+  // 背景（按画布尺寸铺满）
   if (bg2) {
-    const g = bgDir === 'H' ? ctx.createLinearGradient(0, 0, W, 0)
-      : bgDir === 'D' ? ctx.createLinearGradient(0, 0, W, H)
-        : bgDir === 'R' ? ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, Math.max(W, H) / 1.4)
-          : ctx.createLinearGradient(0, 0, 0, H);
+    const g = bgDir === 'H' ? ctx.createLinearGradient(0, 0, cw, 0)
+      : bgDir === 'D' ? ctx.createLinearGradient(0, 0, cw, ch)
+        : bgDir === 'R' ? ctx.createRadialGradient(cw / 2, ch / 2, 10, cw / 2, ch / 2, Math.max(cw, ch) / 1.4)
+          : ctx.createLinearGradient(0, 0, 0, ch);
     g.addColorStop(0, bg1);
     g.addColorStop(1, bg2);
     ctx.fillStyle = g;
   } else {
     ctx.fillStyle = bg1;
   }
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, cw, ch);
+
+  // 等比缩过的图：把坐标系缩放回模型给的那套，图元坐标照旧
+  if (fit !== 1) ctx.scale(fit, fit);
 
   const failed: string[] = [];
 
@@ -150,7 +163,7 @@ export async function renderDraw(code: string, assets: DrawAssets = {}): Promise
     }
   }
 
-  return { png: canvas.toBuffer('image/png'), width: W, height: H, failed };
+  return { png: canvas.toBuffer('image/png'), width: cw, height: ch, failed };
 }
 
 async function drawElement(
@@ -294,8 +307,11 @@ function drawRing(ctx: SKRSContext2D, rest: Tok[]): void {
   const c = parsePair(rest[0]);
   const rr = rest[1]?.raw.match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/);
   if (!c || !rr) throw new Error('RING 参数不全');
-  const rOut = parseFloat(rr[1]);
-  const rIn = parseFloat(rr[2]);
+  const rOut = Math.abs(parseFloat(rr[1]));
+  const rIn = Math.abs(parseFloat(rr[2]));
+  // 内外半径写一样 = 厚度 0 的空环，屏幕上什么都看不到。
+  // 这种错很难自己发现，所以直接报出来，别让它悄悄画成空白。
+  if (rOut <= rIn) throw new Error(`RING 内半径(${rIn})必须小于外半径(${rOut})，否则是个空环`);
   const st = styleOf(rest.slice(2));
   ctx.beginPath();
   ctx.arc(c.x, c.y, Math.abs(rOut), 0, Math.PI * 2);
@@ -512,9 +528,16 @@ function drawArc(ctx: SKRSContext2D, rest: Tok[]): void {
   const p1 = parsePair(rest[0]);
   const p2 = parsePair(rest[1]);
   const rr = rest[2]?.raw.match(/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/);
-  if (!p1 || !p2 || !rr) throw new Error('A 参数不全');
+  if (!p1 || !p2 || !rr) throw new Error('A 参数不全（要 起点x,y 弧心x,y 半径,角度）');
   const r = parseFloat(rr[1]);
   const deg = parseFloat(rr[2]);
+  if (!r) throw new Error('A 半径不能是 0');
+  // 半径给的和「起点到弧心的实际距离」差太多，弧就会错位（最常见的就是把终点当成弧心）
+  const real = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  if (real > 0 && Math.abs(real - Math.abs(r)) > Math.max(8, Math.abs(r) * 0.2)) {
+    throw new Error(`A 半径(${Math.abs(r)})和起点到弧心的距离(${real.toFixed(1)})对不上，` +
+      '第二对坐标要填弧心，不是终点');
+  }
   const st = styleOf(rest.slice(3));
   const start = Math.atan2(p1.y - p2.y, p1.x - p2.x);
   ctx.beginPath();

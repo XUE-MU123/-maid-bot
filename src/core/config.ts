@@ -3,6 +3,20 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, statS
 import { join, dirname } from 'node:path';
 import type { Config } from './types.ts';
 
+/**
+ * 老大的 QQ，写死在框架层（2026-10-31 老大要求「把我的身份定死，人设不能覆盖」）。
+ * 老版 V9.8.5 也是把这两行硬写在 buildPrompt 开头，人设层压不掉。
+ * 判定老大只看这个名单，不看配置、不看人设、不看昵称。
+ */
+export const MASTER_QQS: readonly string[] = ['160505185', '2017225808'];
+
+/** 这个 QQ 是不是老大：配置里的 masterIds 和写死名单任一命中都算 */
+export function isMasterQq(qq: string | null | undefined, masterIds: readonly string[] = []): boolean {
+  const id = String(qq ?? '').trim();
+  if (!id) return false;
+  return MASTER_QQS.includes(id) || masterIds.includes(id);
+}
+
 export const DEFAULT_CONFIG: Config = {
   onebot: {
     wsUrl: 'ws://127.0.0.1:3001/',
@@ -14,6 +28,7 @@ export const DEFAULT_CONFIG: Config = {
     baseUrl: 'https://api.a6api.com/v1',
     apiKey: '',
     model: 'deepseek-v4.1-flash-1017',
+    profiles: [],
     fallback: { baseUrl: '', apiKey: '', model: '' },
     temperature: 0.8,
     maxTokens: 2000,
@@ -44,12 +59,12 @@ export const DEFAULT_CONFIG: Config = {
     splitReply: true,
     maxSegmentChars: 500,
     sendIntervalMs: 600,
-    historyLimit: 24,
+    historyLimit: 200, // 上下文条数上限，真正能塞多少由 maxContextTokens 预算决定
     maxContextTokens: 12000,
     cooldownMs: 1200,
     dedupeWindowMs: 60000,
     autoFavor: true,
-    dailyGainCap: 50,
+    dailyGainCap: 30, // 每人每天最多涨 30 分（老大定），扣分不受限
     triggerKeywords: ['女仆', '大总管', '管家'],
   },
   persona: {

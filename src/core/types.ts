@@ -4,11 +4,24 @@
 export type SessionType = 'group' | 'private';
 export type MsgRole = 'user' | 'assistant' | 'system';
 
+/** 一份存起来的接口档案：只存「地址 + 模型名 + Key」三样，温度和超时全站共用 */
+export interface LLMProfile {
+  /** 内部 ID，前端靠它定位，不用来显示 */
+  id: string;
+  /** 老大自己起的名字，比如「A6 主站」「官方直连」 */
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 /** 模型接口（OpenAI 兼容中转站 / 官方均可） */
 export interface LLMConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 存好的多份接口，切换时一键填回上面三项 */
+  profiles: LLMProfile[];
   /** 主接口失败时的备用接口 */
   fallback: { baseUrl: string; apiKey: string; model: string };
   temperature: number;
@@ -132,6 +145,12 @@ export interface StoredMessage {
   senderName: string | null;
   msgId: string | null;
   createdAt: number;
+  /** 群身份：owner / admin / member；攒给「[名称…|身份:群主]」这一段用 */
+  senderRole: string | null;
+  /** 群头衔（专属头衔），没有就是空串 */
+  senderTitle: string | null;
+  /** 这条消息来自哪个会话：[当前对话:群聊|对话ID:xxx]，记忆互通时不串台靠它 */
+  dialogTag: string | null;
 }
 
 export interface FavorState {
@@ -171,6 +190,8 @@ export interface SenderInfo {
   nickname?: string;
   card?: string;
   role?: string;
+  /** 群头衔/专属头衔，有的协议端会带 */
+  title?: string;
 }
 
 export interface OneBotEvent {
@@ -201,6 +222,8 @@ export interface NormalizedMessage {
   senderId: string;
   senderName: string;
   senderRole: string;
+  /** 群头衔（专属头衔），私聊为空串 */
+  senderTitle: string;
   messageId: string;
   text: string;
   images: string[];

@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>女仆大总管 · 控制面板</title>
+  <link rel="stylesheet" href="/style.css?v=1793201390">
+</head>
+<body>
+  <!-- 整体布局：左侧固定侧边栏 + 右侧主区（SnowLuma 那种后台样子） -->
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="side-brand">
+        <div class="side-logo">柚</div>
+        <div class="side-title">
+          <h1>女仆大总管</h1>
+          <p>控制面板 v<span id="version">-</span></p>
+        </div>
+      </div>
+
+      <nav class="side-nav" id="tabs">
+        <button class="tab active" data-tab="overview"><span class="tab-ico">◈</span><span>总览</span></button>
+        <button class="tab" data-tab="sessions"><span class="tab-ico">☰</span><span>会话</span></button>
+        <button class="tab" data-tab="favors"><span class="tab-ico">★</span><span>好感度</span></button>
+        <button class="tab" data-tab="ignores"><span class="tab-ico">✕</span><span>不理名单</span></button>
+        <button class="tab" data-tab="settings"><span class="tab-ico">⚙</span><span>设置</span></button>
+        <button class="tab" data-tab="logs"><span class="tab-ico">▤</span><span>日志</span></button>
+      </nav>
+
+      <div class="side-foot">
+        <div class="lamp-wrap" id="lamp-wrap" title="OneBot 连接状态">
+          <span class="lamp offline" id="lamp"></span>
+          <span id="lamp-text">连接中…</span>
+        </div>
+        <div class="side-meta">账号 <b id="self-id">-</b></div>
+        <div class="side-meta">已运行 <b id="uptime">-</b></div>
+      </div>
+    </aside>
+
+    <div class="main-area">
+      <header class="topbar">
+        <div class="crumb"><b id="crumb-title">总览</b></div>
+        <div class="top-status">
+          <button class="btn btn-sm" id="btn-theme" title="切换浅色/深色">🌙</button>
+          <button class="btn btn-primary" id="toggle-reply">全局回复：-</button>
+        </div>
+      </header>
+
+  <main>
+    <!-- ===== 总览 ===== -->
+    <section class="view active" id="view-overview">
+      <div class="card-grid">
+        <div class="card stat">
+          <span class="stat-label">OneBot 连接</span>
+          <div class="stat-value" id="ov-conn">-</div>
+          <span class="stat-hint" id="ov-conn-hint">正在读取…</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">消息总数</span>
+          <div class="stat-value" id="ov-messages">-</div>
+          <span class="stat-hint">机器人记住的所有对话</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">会话数</span>
+          <div class="stat-value" id="ov-sessions">-</div>
+          <span class="stat-hint">见过的群和好友</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">好感人数</span>
+          <div class="stat-value" id="ov-favors">-</div>
+          <span class="stat-hint">有记录的联系人</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">Token 用量</span>
+          <div class="stat-value" id="ov-tokens">-</div>
+          <span class="stat-hint" id="ov-token-detail">输入 / 输出</span>
+        </div>
+        <div class="card stat">
+          <span class="stat-label">重连次数</span>
+          <div class="stat-value" id="ov-reconnects">-</div>
+          <span class="stat-hint">断线自动重连累计</span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><h2>快捷操作</h2></div>
+          <div class="btn-row">
+            <button class="btn" id="btn-ping-llm">测试模型连通性</button>
+            <button class="btn" id="btn-refresh-overview">立即刷新</button>
+            <button class="btn btn-danger" id="btn-clear-all">清空全部记忆</button>
+          </div>
+          <div class="hint-box" id="llm-test-result">点「测试模型连通性」，看看模型通不通。没填 Key 时会走本地假回复。</div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>接入概况</h2>
+            <button class="btn btn-sm" id="btn-refresh-extras">刷新</button>
+          </div>
+          <div class="kv" id="ov-extras">
+            <div class="kv-row"><span>已加入群</span><b id="ov-groups">-</b></div>
+            <div class="kv-row"><span>好友数</span><b id="ov-friends">-</b></div>
+            <div class="kv-row"><span>最近错误</span><b id="ov-last-error">-</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>最近运行日志</h2>
+            <p class="muted">不用切标签页，这里就能看到它在干嘛。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-sm" type="button" id="btn-ov-log-refresh">刷新</button>
+            <button class="btn btn-sm" type="button" id="btn-ov-log-full">看完整日志</button>
+          </div>
+        </div>
+        <pre class="logbox small" id="ov-log">正在读取日志…</pre>
+      </div>
+    </section>
+
+    <!-- ===== 会话 ===== -->
+    <section class="view" id="view-sessions">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>会话列表</h2>
+            <p class="muted">机器人见过的群和好友会自动出现在这里。改完立刻生效，不用重启。</p>
+          </div>
+          <button class="btn btn-sm" id="btn-sessions-refresh">刷新</button>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl" id="tbl-sessions">
+            <thead>
+              <tr>
+                <th>会话</th>
+                <th>类型</th>
+                <th>启用</th>
+                <th>触发概率</th>
+                <th>记忆</th>
+                <th class="num">消息数</th>
+                <th class="actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="sessions-body"></tbody>
+          </table>
+        </div>
+        <div class="empty hidden" id="sessions-empty">
+          还没有记录到任何会话。<br>
+          <span class="muted">机器人在群里被 @ 一次，或者收到一条私聊之后，这里就会出现。</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 好感度 ===== -->
+    <section class="view" id="view-favors">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>好感度</h2>
+            <p class="muted">聊天越投机分数越高。老大的号固定最高级，不受影响。</p>
+          </div>
+          <div class="toolbar">
+            <input type="search" id="favor-search" placeholder="搜 QQ / 等级">
+            <button class="btn btn-sm" id="btn-favors-refresh">刷新</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl" id="tbl-favors">
+            <thead>
+              <tr>
+                <th>QQ</th>
+                <th class="num">分数</th>
+                <th>等级</th>
+                <th>身份</th>
+                <th class="num">今日涨幅</th>
+                <th>更新时间</th>
+                <th class="actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="favors-body"></tbody>
+          </table>
+        </div>
+        <div class="empty hidden" id="favors-empty">
+          还没有好感度记录。<br>
+          <span class="muted">等机器人和人聊过天，这里就会自动出现。</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 不理名单 ===== -->
+    <section class="view" id="view-ignores">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>不理名单</h2>
+            <p class="muted">柚子明确说不想理的人。名单里的人发消息她不会回，连模型都不会被叫起来。到时间自动解除。</p>
+          </div>
+          <div class="toolbar">
+            <button class="btn btn-sm" id="btn-ignores-refresh">刷新</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="tbl" id="tbl-ignores">
+            <thead>
+              <tr>
+                <th>人</th>
+                <th>QQ</th>
+                <th class="num">第几次</th>
+                <th>会话</th>
+                <th class="num">剩余</th>
+                <th>解除时间</th>
+                <th class="actions">操作</th>
+              </tr>
+            </thead>
+            <tbody id="ignores-body"></tbody>
+          </table>
+        </div>
+        <div class="empty hidden" id="ignores-empty">
+          现在没有不理任何人。<br>
+          <span class="muted">她在群里说「不想理你」或写上 [不理 QQ号] 之后，这里就会出现记录。</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 设置 ===== -->
+    <section class="view" id="view-settings">
+      <form id="settings-form" autocomplete="off">
+        <div class="card">
+          <div class="card-head">
+            <h2>模型接口</h2>
+            <button class="btn btn-sm" type="button" id="btn-test-llm">测试连通性</button>
+          </div>
+          <div class="hint-box" id="settings-test-result">填好地址和 Key 后点「测试连通性」。</div>
+
+          <!-- 接口档案：存多份 API，下拉选一条就切换，不用每次重填 -->
+          <div class="profile-bar">
+            <label class="profile-pick">
+              <span>接口档案</span>
+              <select id="cfg-profile-list">
+                <option value="">（还没存过档案）</option>
+              </select>
+            </label>
+            <button class="btn btn-sm" type="button" id="btn-profile-save">存为新档案</button>
+            <button class="btn btn-sm btn-ghost" type="button" id="btn-profile-delete" disabled>删除</button>
+            <span class="muted small" id="profile-hint">选一份就立刻切换生效，不用再点保存。</span>
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>接口地址（Base URL）</span>
+              <input type="text" id="cfg-base-url" placeholder="https://api.a6api.com/v1">
+            </label>
+            <label class="field">
+              <span>模型名</span>
+              <input type="text" id="cfg-model" placeholder="deepseek-v4.1-flash-1017">
+              <span class="field-row-inline">
+                <button class="btn btn-sm" type="button" id="btn-fetch-models">拉取模型列表</button>
+                <select id="cfg-model-list" class="model-list">
+                  <option value="">点左边按钮拉取</option>
+                </select>
+              </span>
+            </label>
+            <label class="field col-span">
+              <span>API Key</span>
+              <input type="password" id="cfg-api-key" placeholder="留空表示不改动已保存的 Key">
+            </label>
+            <label class="field">
+              <span>温度（0-2，越大越发散）</span>
+              <input type="number" id="cfg-temperature" min="0" max="2" step="any">
+            </label>
+            <label class="field">
+              <span>单次最大回复 tokens（maxTokens）</span>
+              <input type="number" id="cfg-max-tokens" min="1" max="200000" step="1">
+              <span class="muted small">画图、做表这类长输出要 ≥1500，太小学会被截断</span>
+            </label>
+            <label class="field">
+              <span>超时（毫秒）</span>
+              <input type="number" id="cfg-timeout" min="1000" max="600000" step="any">
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-mock">
+              <span>本地假回复模式（没 Key 时先用它跑通链路）</span>
+            </label>
+          </div>
+          <details class="sub-panel">
+            <summary>备用接口（主接口挂了自动切过去）</summary>
+            <div class="form-grid">
+              <label class="field">
+                <span>备用地址</span>
+                <input type="text" id="cfg-fallback-base" placeholder="留空表示不启用备用接口">
+              </label>
+              <label class="field">
+                <span>备用模型名</span>
+                <input type="text" id="cfg-fallback-model" placeholder="例如 glm-4-flash">
+              </label>
+              <label class="field col-span">
+                <span>备用 API Key</span>
+                <input type="password" id="cfg-fallback-key" placeholder="留空表示不改动已保存的 Key">
+              </label>
+            </div>
+          </details>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>识图</h2>
+              <p class="muted">有人发图时，先让视觉模型看懂「图里有什么」，再由柚子在群里接话。关掉的话它只知道「有人发了张图」。</p>
+            </div>
+            <label class="field checkbox" style="margin:0">
+              <input type="checkbox" id="cfg-vision-enabled">
+              <span>开启识图</span>
+            </label>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>视觉模型名</span>
+              <input type="text" id="cfg-vision-model" placeholder="grok-4.6">
+            </label>
+            <label class="field">
+              <span>超时（毫秒）</span>
+              <input type="number" id="cfg-vision-timeout" min="5000" max="300000" step="any">
+            </label>
+            <label class="field">
+              <span>接口地址（留空=复用上面的主接口）</span>
+              <input type="text" id="cfg-vision-base" placeholder="留空就用主接口">
+            </label>
+            <label class="field">
+              <span>描述最多保留多少字</span>
+              <input type="number" id="cfg-vision-chars" min="40" max="1000" step="any">
+            </label>
+            <label class="field col-span">
+              <span>识图专用 Key（留空=复用主接口的 Key，一般不用填）</span>
+              <input type="password" id="cfg-vision-key" placeholder="留空表示复用主接口的 Key">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>出图</h2>
+              <p class="muted">AI 写代码块或 Markdown 表格时，自动画成图片发出去。注意：上面的「单次最大回复 tokens」要 ≥1500，不然画图代码会被截断。</p>
+            </div>
+            <label class="field checkbox" style="margin:0">
+              <input type="checkbox" id="cfg-render-enabled">
+              <span>开启出图</span>
+            </label>
+          </div>
+          <div class="form-grid">
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-render-tables">
+              <span>Markdown 表格转图片</span>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-render-svg">
+              <span>SVG 代码块渲染</span>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-render-mermaid">
+              <span>Mermaid 流程图（走 mermaid.ink，内容会发给第三方）</span>
+            </label>
+            <label class="field">
+              <span>单条最多出几张图</span>
+              <input type="number" id="cfg-render-max" min="0" max="3" step="1">
+            </label>
+            <label class="field">
+              <span>单张渲染超时（毫秒）</span>
+              <input type="number" id="cfg-render-timeout" min="3000" max="60000" step="any">
+            </label>
+            <label class="field">
+              <span>表格样式</span>
+              <select id="cfg-render-table-preset">
+                <option value="yuzu-deep">柚子·深海星空（深色，默认）</option>
+                <option value="yuzu-lace">柚子·蓝白蕾丝（浅色）</option>
+                <option value="yuzu-bubble">柚子·星海气泡</option>
+                <option value="magazine">杂志极简（白底黑字）</option>
+                <option value="cyber">暗夜赛博</option>
+                <option value="candy">马卡龙</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>人格提示词</h2></div>
+          <div class="form-grid">
+            <label class="field col-span">
+              <span>全局人格（机器人是谁、怎么说话）</span>
+              <textarea id="cfg-system-prompt" rows="7"></textarea>
+            </label>
+            <label class="field col-span">
+              <span>群聊主动搭话时的心情提示</span>
+              <textarea id="cfg-group-proactive" rows="2"></textarea>
+            </label>
+            <label class="field col-span">
+              <span>私聊主动搭话时的心情提示</span>
+              <textarea id="cfg-private-proactive" rows="2"></textarea>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-favor-hint">
+              <span>把好感度写进提示词（关系会影响说话语气）</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>全局触发关键词</h2>
+              <p class="muted">群友说这些话时机器人会接话（不是 @ 也能触发）。某个群想用别的词，去「会话」页单独填。</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="field col-span">
+              <span>关键词（逗号或空格分隔）</span>
+              <input type="text" id="cfg-trigger-keywords" placeholder="女仆, 大总管, 管家, 柚子">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>日志</h2>
+              <p class="muted">想看「收到每条消息」就切到 DEBUG；平时用 INFO 就好，省磁盘。</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label class="field">
+              <span>日志级别</span>
+              <select id="cfg-log-level">
+                <option value="debug">DEBUG（全部，含没触发的消息）</option>
+                <option value="info">INFO（推荐，只记要处理的）</option>
+                <option value="warn">WARN（只看警告和错误）</option>
+                <option value="error">ERROR（只看报错）</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>日志保留天数</span>
+              <input type="number" id="cfg-log-keep" min="1" max="90" step="any">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>运行参数</h2></div>
+          <div class="form-grid">
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-auto-reply">
+              <span>全局自动回复总开关</span>
+            </label>
+            <label class="field checkbox">
+              <input type="checkbox" id="cfg-split-reply">
+              <span>长回复自动切段发送</span>
+            </label>
+            <label class="field">
+              <span>送进模型的最近对话条数</span>
+              <input type="number" id="cfg-history-limit" min="1" max="200" step="any">
+            </label>
+            <label class="field">
+              <span>上下文 token 预算</span>
+              <input type="number" id="cfg-max-context" min="500" max="200000" step="any">
+            </label>
+            <label class="field">
+              <span>面板端口（重启后生效）</span>
+              <input type="number" id="cfg-panel-port" min="1" max="65535" step="1">
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>新会话默认触发概率</h2></div>
+          <p class="muted">只影响以后新建的群/好友；已有会话在「会话」页单独调。</p>
+          <div class="form-grid three">
+            <label class="field">
+              <span>被 @ 时（%）</span>
+              <input type="number" id="cfg-at-prob" min="0" max="100" step="any">
+            </label>
+            <label class="field">
+              <span>命中关键词（%）</span>
+              <input type="number" id="cfg-keyword-prob" min="0" max="100" step="any">
+            </label>
+            <label class="field">
+              <span>随机插话（%）</span>
+              <input type="number" id="cfg-random-prob" min="0" max="100" step="any">
+            </label>
+          </div>
+        </div>
+
+        <div class="save-bar">
+          <span class="muted" id="settings-hint">改完点右边保存，立刻生效（面板端口除外）。</span>
+          <button class="btn btn-primary btn-lg" type="submit" id="btn-save-config">保存设置</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== 日志 ===== -->
+    <section class="view" id="view-logs">
+      <div class="log-card">
+        <div class="log-head">
+          <div class="log-title">
+            <h2>运行日志 <span class="live-dot"></span></h2>
+            <p id="log-file-hint">读取 logs/bot.log</p>
+          </div>
+          <div class="log-tools">
+            <input type="search" id="log-search" class="log-search" placeholder="搜索消息 / 模块 / 级别">
+            <select id="log-limit" class="log-select">
+              <option value="100">100 行</option>
+              <option value="200" selected>200 行</option>
+              <option value="500">500 行</option>
+              <option value="1000">1000 行</option>
+            </select>
+            <label class="log-follow"><input type="checkbox" id="log-follow" checked> 跟随最新</label>
+            <button class="btn btn-sm" id="btn-logs-refresh">刷新</button>
+          </div>
+        </div>
+
+        <div class="log-filters" id="log-filters">
+          <button class="lvl-chip" data-level="TRACE"><i class="dot d-trace"></i>TRACE</button>
+          <button class="lvl-chip" data-level="DEBUG"><i class="dot d-debug"></i>DEBUG</button>
+          <button class="lvl-chip active" data-level="INFO"><i class="dot d-info"></i>INFO</button>
+          <button class="lvl-chip active" data-level="SUCCESS"><i class="dot d-success"></i>SUCCESS</button>
+          <button class="lvl-chip active" data-level="WARN"><i class="dot d-warn"></i>WARN</button>
+          <button class="lvl-chip active" data-level="ERROR"><i class="dot d-error"></i>ERROR</button>
+        </div>
+
+        <div class="log-table-wrap">
+          <table class="log-table">
+            <thead>
+              <tr><th class="c-time">时间</th><th class="c-level">级别</th><th class="c-mod">模块</th><th>消息</th></tr>
+            </thead>
+            <tbody id="log-tbody"></tbody>
+          </table>
+          <div class="log-empty hidden" id="log-empty">还没有匹配的日志</div>
+        </div>
+      </div>
+    </section>
+  </main>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span>女仆大总管 · 本地控制面板</span>
+    <span id="foot-clock"></span>
+  </footer>
+
+  <div class="toasts" id="toasts"></div>
+  <div class="modal-root hidden" id="modal-root"></div>
+
+  <script src="/app.js?v=1793201004"></script>
+</body>
+</html>

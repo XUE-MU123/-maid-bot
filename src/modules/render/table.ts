@@ -263,10 +263,31 @@ export function parseMarkdownTable(text: string): { head: string[]; rows: string
   return { head: head.slice(0, cols), rows, aligns: aligns.slice(0, cols) };
 }
 
+/**
+ * 表格里的字符清洗：
+ * - 私用区（U+E000–U+F8FF）和变体选择符没有标准字形，画出来就是一个空方框（劫瑞□ 这种）
+ * - 控制字符、零宽字符同样只会撑宽度、看不见
+ * 统一抹掉，剩下的 emoji / 正常字照常画。
+ */
+function cleanCell(s: string): string {
+  return String(s ?? '')
+    .replace(/[\uE000-\uF8FF]/g, '')
+    .replace(/[\uFE00-\uFE0F]/g, '')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060]/g, '')
+    .trim();
+}
+
 export function renderTable(
   data: { head: string[]; rows: string[][]; aligns?: string[] },
   opts: Partial<TableTheme> = {},
 ): TableResult {
+  // 私用区/零宽字符先清洗掉，不然昵称会变成空方框
+  data = {
+    head: (data.head ?? []).map(cleanCell),
+    rows: (data.rows ?? []).map((r) => (r ?? []).map(cleanCell)),
+    aligns: data.aligns,
+  };
   // 默认走老大选定的「柚子·深海星空」
   const preset = TABLE_PRESETS[opts.preset ?? 'yuzu-deep'] ?? null;
   const theme = preset

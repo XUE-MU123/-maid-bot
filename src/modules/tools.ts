@@ -5,6 +5,7 @@ import { fmtTime, todayStr } from '../core/util.ts';
 import type { DB } from '../core/db.ts';
 import type { ToolCall, ToolDef, ToolResult } from '../core/types.ts';
 import type { ToolContext } from './context.ts';
+import { humanRemain, listIgnores } from './ignore.ts';
 
 const log = makeLogger('tools');
 
@@ -109,6 +110,8 @@ export function applyFavorDelta(
   const gainToday = row.day === today ? row.dailyGain : 0;
   const cap = Math.max(0, Math.floor(ctx.config.bot.dailyGainCap));
 
+  // 老大亲自下令：加减多少就是多少，不看每日额度，也不占对方的额度
+  const boss = !!ctx.isMaster;
   let after: number;
   let gain = gainToday;
   let capped = false;
@@ -117,11 +120,15 @@ export function applyFavorDelta(
   } else {
     const d = Math.round(value);
     if (d > 0) {
-      const room = Math.max(0, cap - gainToday);
-      const add = Math.min(d, room);
-      after = row.score + add;
-      gain = gainToday + add;
-      capped = add < d;
+      if (boss) {
+        after = row.score + d;
+      } else {
+        const room = Math.max(0, cap - gainToday);
+        const add = Math.min(d, room);
+        after = row.score + add;
+        gain = gainToday + add;
+        capped = add < d;
+      }
     } else {
       after = row.score + d; // 扣分不限
     }
@@ -184,18 +191,6 @@ export const TOOL_DEFS: ToolDef[] = [
       type: 'object',
       properties: { enable: { type: 'boolean', description: 'true 开启全员禁言，false 解除' } },
       required: ['enable'],
-    },
-  },
-  {
-    name: 'kick_member',
-    description: '把某个成员踢出群聊（仅群聊）。blacklist 为 true 时同时拒绝其再次加群。',
-    parameters: {
-      type: 'object',
-      properties: {
-        user_id: { type: 'string', description: '要踢出的 QQ 号' },
-        blacklist: { type: 'boolean', description: '是否同时拉黑（拒绝再次加群），默认 false' },
-      },
-      required: ['user_id'],
     },
   },
   {
@@ -269,6 +264,11 @@ export const TOOL_DEFS: ToolDef[] = [
     },
   },
   {
+    name: 'list_ignore',
+    description: '查看当前被标记为「不想理」的人，以及各自还剩多久自动解除。老大问"你不理谁了""黑名单还有谁"时调用。',
+    parameters: { type: 'object', properties: {}, required: [] },
+  },
+  {
     name: 'favor_rank',
     description: '查好感度排行榜。群聊里只排本群成员（已经退群的不会出现），私聊里排全部记录。想知道谁最讨你喜欢、给谁排个名次就调它。',
     parameters: {
@@ -283,7 +283,7 @@ export const TOOL_DEFS: ToolDef[] = [
 ];
 
 /** 场景裁剪：私聊里不给群管工具；是否有权限由 handler 判定，好让模型收到人话提示 */
-const GROUP_ONLY = new Set(['ban_member', 'unban_member', 'set_whole_ban', 'kick_member', 'get_muted_list', 'get_member_info']);
+const GROUP_ONLY = new Set(['ban_member', 'unban_member', 'set_whole_ban', 'get_muted_list', 'get_member_info']);
 
 export function toolDefsFor(ctx: ToolContext): ToolDef[] {
   if (isGroup(ctx)) return TOOL_DEFS;
@@ -326,19 +326,6 @@ const handlers: Record<string, Handler> = {
     await ctx.client.setGroupWholeBan(ctx.msg.targetId, enable);
     ctx.note(`全员禁言 ${enable ? '开' : '关'}`);
     return ok(enable ? '已开启全员禁言。' : '已解除全员禁言。');
-  },
-
-  async kick_member(ctx, args) {
-    if (!hasAdmin(ctx)) return fail('这个操作需要管理员身份');
-    const target = asStr(args.user_id);
-    if (!target) return fail('没告诉我要踢谁。');
-    if (!isQq(target)) return fail(`QQ 号 ${target} 看起来不对，没执行。`);
-    const blocked = protectedTarget(ctx, target);
-    if (blocked) return fail(blocked);
-    const blacklist = asBool(args.blacklist) ?? false;
-    await ctx.client.kickGroupMember(ctx.msg.targetId, target, blacklist);
-    ctx.note(`踢出 ${target}${blacklist ? '（拉黑）' : ''}`);
-    return ok(`已把 ${target} 请出群聊${blacklist ? '，并拒绝其再次加群' : ''}。`);
   },
 
   async recall_message(ctx, args) {
@@ -404,6 +391,21 @@ const handlers: Record<string, Handler> = {
       return `[${fmtTime(ms)}] ${who}：${txt}`;
     });
     return ok(`找到 ${rows.length} 条跟「${kw}」有关：\n${lines.join('\n')}`);
+  },
+
+  async list_ignore(ctx) {
+    if (!ctx.isMaster) return fail('这份名单只有老大能看。');
+    const rows = listIgnores(ctx.db);
+    if (!rows.length) return ok('现在没有不理任何人，谁都能找我说话。');
+    const lines = rows.map((r, i) => {
+      const row = ctx.db.prepare('SELECT sender_name FROM messages WHERE sender_id = ? ORDER BY id DESC LIMIT 1').get(r.qq) as { sender_name?: string } | undefined;
+      const nick = String(row?.sender_name ?? '').trim();
+      const who = nick ? `${nick}(${r.qq})` : r.qq;
+      const where = r.sessionKey.startsWith('p:') ? '私聊' : '群';
+      const left = r.forever ? '永久' : `还剩 ${humanRemain(r.remainSec)}`;
+      return `${i + 1}. ${who} — ${where} ${r.sessionKey.replace(/^[gp]:/, '')}，${left}（累计第 ${r.times} 次）`;
+    });
+    return ok(`现在不理这些人（到点自动解除）：\n${lines.join('\n')}`);
   },
 
   async favor_rank(ctx, args) {

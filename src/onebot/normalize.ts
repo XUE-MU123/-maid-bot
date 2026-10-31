@@ -138,6 +138,8 @@ export function normalize(ev: OneBotEvent, selfIds: string[]): NormalizedMessage
     senderId,
     senderName: pickName(sender.card, sender.nickname, senderId),
     senderRole: String(sender.role ?? 'member'),
+    // 群头衔不保证在消息事件里带，没有就空串，后面再问一次协议端补上
+    senderTitle: String(sender.title ?? ''),
     messageId: String(ev.message_id ?? ''),
     text,
     images,

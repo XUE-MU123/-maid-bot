@@ -2,6 +2,7 @@
 import type { DB } from '../core/db.ts';
 import type { FavorChange, FavorLevel, FavorState } from '../core/types.ts';
 import { clamp, todayStr } from '../core/util.ts';
+import { MASTER_QQS } from '../core/config.ts';
 import { makeLogger } from '../core/logger.ts';
 
 const log = makeLogger('favor');
@@ -12,37 +13,38 @@ const HIGH = 999999;
 
 /**
  * 十档关系，index 0 最差、9 最好。
- * 区间：≤-101 / -100..-61 / -60..-31 / -30..-11 / -10..0 / 1..20 / 21..60 / 61..120 / 121..200 / ≥201
+ * 阈值照老版 V9.8.5 原样搬：≤-500 / -499..-300 / -299..-150 / -149..-50 / -49..-1 /
+ * 0..49 / 50..149 / 150..299 / 300..499 / ≥500
  */
 export const LEVELS: FavorLevel[] = [
-  { index: 0, name: '极恶宿敌', min: LOW, max: -101 },
-  { index: 1, name: '深恶痛绝', min: -100, max: -61 },
-  { index: 2, name: '厌烦嫌弃', min: -60, max: -31 },
-  { index: 3, name: '冷淡防备', min: -30, max: -11 },
-  { index: 4, name: '生疏克制', min: -10, max: 0 },
-  { index: 5, name: '初识客套', min: 1, max: 20 },
-  { index: 6, name: '友善熟络', min: 21, max: 60 },
-  { index: 7, name: '信赖好友', min: 61, max: 120 },
-  { index: 8, name: '深厚挚友', min: 121, max: 200 },
-  { index: 9, name: '特等贵客', min: 201, max: HIGH },
+  { index: 0, name: '极恶宿敌', min: LOW, max: -500 },
+  { index: 1, name: '深恶痛绝', min: -499, max: -300 },
+  { index: 2, name: '厌烦嫌弃', min: -299, max: -150 },
+  { index: 3, name: '冷淡防备', min: -149, max: -50 },
+  { index: 4, name: '生疏克制', min: -49, max: -1 },
+  { index: 5, name: '初识客套', min: 0, max: 49 },
+  { index: 6, name: '友善熟络', min: 50, max: 149 },
+  { index: 7, name: '信赖好友', min: 150, max: 299 },
+  { index: 8, name: '深厚挚友', min: 300, max: 499 },
+  { index: 9, name: '特等贵客', min: 500, max: HIGH },
 ];
 
 /** 老大的档位：同样在 9 级，但名字要标出至高主权 */
-const MASTER_LEVEL: FavorLevel = { index: 9, name: '至高主权', min: 201, max: HIGH };
+const MASTER_LEVEL: FavorLevel = { index: 9, name: '至高主权', min: 500, max: HIGH };
 const MASTER_SCORE = 999;
 
-/** 给系统提示词用的口味说明，和 LEVELS 一一对应 */
+/** 给系统提示词用的口味说明，和 LEVELS 一一对应，措辞照老版十阶表 */
 const HINTS = [
-  '，已经彻底撕破脸，只做最低限度回应，能不接就不接。',
-  '，极其反感，回复冷淡简短，别主动搭话。',
-  '，看着就烦，能敷衍就敷衍，不要顺着对方聊。',
-  '，保持距离，客气但疏离，不主动分享任何事。',
-  '，刚认识，礼貌克制，不冷不热。',
-  '，还算客气的点头之交，正常聊天即可。',
-  '，聊得来的熟人，可以开玩笑、多说两句。',
-  '，信得过的好友，语气亲近，愿意主动关心。',
-  '，交情很深的挚友，可以掏心窝子说话。',
-  '，最亲近的贵客，热情周到，事事上心。',
+  '，彻底视为害虫，全天候冷酷审判、无情贬损，日常完全无视。',
+  '，极度鄙夷，极大概率直接拒绝搭理，说话极具攻击性。',
+  '，毒舌、阴阳怪气、直接反驳甚至言语警告。',
+  '，回复极少（如“哦”“没空”），明显拉开距离，抗拒互动。',
+  '，态度收敛，语言精简严肃，去掉可爱语气词，公事公办。',
+  '，标准礼貌，保持安全距离，客气周到但不主动开私密玩笑。',
+  '，语气温和可爱，带点轻松口语，不抗拒闲聊。',
+  '，完全放下防备，言谈坦诚自然，会主动接梗、吐槽、主动关照。',
+  '，高度偏爱，互动极其随和亲昵，包容玩笑，愿意帮腔解围。',
+  '，群友里的天花板待遇，除了老大之外最重视最信赖的人，极度温柔偏袒；但永远守住本分，老大的命令绝对优先。',
 ];
 
 interface FavorRow {
@@ -126,12 +128,17 @@ export function applyDelta(db: DB, qq: string, delta: number, opts: {
   reason?: string;
   dailyGainCap: number;
   isMaster: boolean;
+  /** 单次最多变动多少分（默认 5；老大亲自下令时放宽） */
+  maxStep?: number;
+  /** 不占每日额度（老大亲自下令时用：他加的分不该把对方今天的额度吃掉） */
+  noQuota?: boolean;
   now?: number;
 }): FavorChange | null {
   const id = normQq(qq);
   if (opts.isMaster || !id) return null;
 
-  const d = clamp(Math.round(num(delta)), -5, 5);
+  const step = Math.max(1, Math.floor(num(opts.maxStep) || 5));
+  const d = clamp(Math.round(num(delta)), -step, step);
   if (d === 0) return null;
 
   const nowMs = Number.isFinite(Number(opts.now)) ? Number(opts.now) : Date.now();
@@ -147,11 +154,16 @@ export function applyDelta(db: DB, qq: string, delta: number, opts: {
   let gain = gainToday;
   let capped = false;
   if (d > 0) {
-    const room = Math.max(0, cap - gainToday);
-    const add = Math.min(d, room);
-    after = before + add;
-    gain = gainToday + add;
-    capped = add < d;
+    if (opts.noQuota) {
+      // 老大下令：直接加，不占额度、不封顶
+      after = before + d;
+    } else {
+      const room = Math.max(0, cap - gainToday);
+      const add = Math.min(d, room);
+      after = before + add;
+      gain = gainToday + add;
+      capped = add < d;
+    }
   } else {
     after = before + d; // 扣分不限
   }
@@ -215,7 +227,8 @@ export function listFavors(db: DB, limit: number, masterIds: string[]): FavorSta
 
   const masters: string[] = [];
   const seen = new Set<string>();
-  for (const raw of masterIds ?? []) {
+  // 写死的两个号永远在榜单顶部，配置删不掉
+  for (const raw of [...MASTER_QQS, ...(masterIds ?? [])]) {
     const id = normQq(raw);
     if (!id || seen.has(id)) continue;
     seen.add(id);
