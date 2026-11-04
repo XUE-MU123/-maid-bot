@@ -1,0 +1,126 @@
+/* V2-04 蓝湾珊瑚: blue-led, cross-color light; no wave or contour artwork. */
+.login-page {
+  --login-muted: color-mix(in srgb, var(--muted) 76%, var(--foreground));
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: clip;
+  color: var(--foreground);
+  background:
+    radial-gradient(ellipse at 9% 15%, color-mix(in srgb, var(--primary) 19%, transparent), transparent 61%),
+    radial-gradient(ellipse at 91% 81%, color-mix(in srgb, var(--coral, #f39688) 25%, transparent), transparent 60%),
+    radial-gradient(ellipse at 55% 40%, color-mix(in srgb, var(--gradient-mid, #b7e8e8) 20%, transparent), transparent 65%),
+    var(--background);
+}
+.login-starfield { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.login-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+  padding: max(22px, env(safe-area-inset-top)) clamp(16px, 3.5vw, 52px) 14px;
+}
+.login-scene-label { display: inline-flex; align-items: center; gap: 8px; color: var(--login-muted); font-size: 11px; letter-spacing: 1.5px; }
+.login-scene-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 9%, transparent); }
+.login-tools { display: flex; gap: 8px; flex-shrink: 0; }
+.login-page .login-tool { min-height: 40px; padding: 8px 11px; border-radius: 12px; color: var(--login-muted); background: color-mix(in srgb, var(--surface) 82%, transparent); font-size: 11px; transition: none; border-color: var(--border); }
+.login-page .login-theme-tool { width: 40px; padding: 9px; }
+.login-page .login-tool:hover { color: var(--foreground); border-color: color-mix(in srgb, var(--primary) 48%, var(--border)); }
+.login-stage { flex: 1; display: flex; align-items: center; justify-content: center; padding: 28px 20px; min-width: 0; }
+.login-wrap { width: min(100%, 400px); min-width: 0; }
+.login-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  padding: 34px 34px 25px;
+  border: 2px solid transparent;
+  border-radius: 25px;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+    var(--brand-gradient, linear-gradient(112deg, #147bc8, #b7e8e8 50%, #f39688)) border-box;
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--primary) 10%, transparent), 0 3px 14px #132c4510;
+}
+.login-card::before { content: none; }
+.login-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 21px;
+  border: 1px solid color-mix(in srgb, var(--gradient-mid, #b7e8e8) 60%, transparent);
+  border-radius: 17px;
+  background: var(--brand-gradient, linear-gradient(112deg, #147bc8, #b7e8e8 50%, #f39688));
+  color: #0c2337;
+  font-size: 30px;
+  font-weight: 750;
+  box-shadow: 0 7px 22px color-mix(in srgb, var(--primary) 17%, transparent);
+}
+.login-eyebrow { margin-bottom: 8px; color: var(--login-muted); font-size: 9px; font-weight: 650; letter-spacing: 2.2px; }
+.login-card h1 { color: var(--foreground); font-size: 26px; font-weight: 700; line-height: 1.4; letter-spacing: -.6px; }
+.login-welcome { margin-top: 7px; color: var(--login-muted); font-size: 13px; line-height: 1.7; }
+.login-form { display: flex; flex-direction: column; gap: 19px; margin-top: 28px; }
+.login-field { min-width: 0; }
+.login-field > label { display: block; margin-bottom: 8px; color: var(--foreground); font-size: 12px; font-weight: 600; }
+.login-input-shell { position: relative; display: flex; align-items: center; min-width: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); transition: border-color .15s, box-shadow .15s; }
+.login-input-shell > svg { position: absolute; left: 14px; pointer-events: none; color: var(--login-muted); }
+.login-page .login-input-shell > .ui-input { width: 100%; height: 48px; min-width: 0; padding: 10px 14px 10px 43px; border: none; border-radius: inherit; background: transparent; color: var(--foreground); font-size: 16px; line-height: 1.5; }
+.login-page .login-input-shell > .ui-input[type="password"], .login-page .login-input-shell > .ui-input[name="password"] { padding-right: 49px; }
+.login-page .login-input-shell > .ui-input::placeholder { color: var(--login-muted); font-size: 13px; opacity: 1; }
+.login-input-shell:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+.login-page .login-input-shell > .ui-input:focus-visible { outline: none; }
+.login-page .login-reveal { position: absolute; right: 2px; width: 44px; min-height: 44px; border-radius: 9px; color: var(--login-muted); }
+.login-error { display: flex; align-items: flex-start; gap: 7px; padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--danger) 7%, var(--surface)); color: var(--danger); font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.login-error > svg { flex-shrink: 0; margin-top: 2px; }
+.login-page .login-submit {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 3px;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, transparent);
+  border-radius: 12px;
+  /* A light veil keeps dark text readable even at the blue end of the gradient. */
+  background: linear-gradient(#ffffff30, #ffffff30), var(--brand-gradient, linear-gradient(112deg, #147bc8, #b7e8e8 50%, #f39688));
+  color: #0c2337;
+  font-size: 14px;
+  font-weight: 750;
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.login-page .login-submit:hover:not(:disabled) { filter: brightness(1.035); }
+.login-page .login-submit:disabled { opacity: .76; }
+.login-security { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 21px; padding-top: 19px; border-top: 1px solid var(--border); color: var(--login-muted); font-size: 10px; line-height: 1.8; text-align: center; }
+.login-security > svg { flex-shrink: 0; }
+.login-interaction-hint { margin-top: 23px; color: var(--login-muted); font-size: 10px; line-height: 1.8; text-align: center; letter-spacing: .4px; overflow-wrap: anywhere; }
+.login-footer { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 16px max(22px, env(safe-area-inset-bottom)); color: var(--login-muted); font-size: 10px; letter-spacing: 2px; }
+.login-footer-line { height: 1px; width: 24px; background: var(--border); }
+[data-theme="dark"] .login-card { box-shadow: 0 24px 90px #0004, 0 2px 14px #0002; }
+[data-theme="dark"] .login-page { background: radial-gradient(ellipse at 9% 15%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 61%), radial-gradient(ellipse at 91% 81%, color-mix(in srgb, var(--coral, #ffb4a0) 12%, transparent), transparent 60%), var(--background); }
+@media (max-width: 480px) {
+  .login-toolbar { padding-top: max(16px, env(safe-area-inset-top)); }
+  .login-stage { padding: 22px 16px; }
+  .login-card { padding: 29px 25px 23px; border-radius: 22px; }
+  .login-card h1 { font-size: 24px; }
+  .login-footer { padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+}
+@media (max-width: 340px) {
+  .login-toolbar { gap: 8px; padding-inline: 12px; }
+  .login-scene-label { font-size: 10px; letter-spacing: .5px; gap: 6px; }
+  .login-tools { gap: 5px; }
+  .login-page .login-tool { padding-inline: 9px; }
+  .login-page .login-theme-tool { width: 38px; }
+  .login-stage { padding-inline: 12px; }
+  .login-card { padding-inline: 19px; }
+  .login-card h1 { font-size: 23px; }
+  .login-security { gap: 4px; font-size: 9px; }
+}
+@media (max-height: 600px) {
+  /* No fixed-height scene: the whole document scrolls when the keyboard is open. */
+  .login-stage { flex: none; padding-top: 14px; padding-bottom: 20px; }
+  .login-footer { margin-top: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-page *, .login-page *::before, .login-page *::after { animation: none !important; transition: none !important; }
+}

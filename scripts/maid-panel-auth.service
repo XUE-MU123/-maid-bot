@@ -1,0 +1,33 @@
+# Template: choose a Node.js 24 absolute path and provision the maidbot account.
+# PANEL_PUBLIC_ORIGIN must exactly match the browser-facing HTTPS origin,
+# including the non-default port. Credentials and static files load at startup.
+[Unit]
+Description=maid-bot panel authentication gateway
+After=network.target maid-bot.service
+
+[Service]
+Type=simple
+User=maidbot
+Group=maidbot
+WorkingDirectory=/opt/maid-bot
+ExecStart=/usr/bin/node /opt/maid-bot/src/server/panel-auth-gateway.ts
+Environment=NODE_ENV=production
+Environment=PANEL_PUBLIC_ORIGIN=https://panel.example.com:3211
+Environment=PANEL_HTPASSWD_PATH=/etc/maid-bot/panel.htpasswd
+Environment=PANEL_GATEWAY_PORT=3213
+Environment=PANEL_UPSTREAM_PORT=3210
+Environment=PANEL_WEB_ROOT=/opt/maid-bot/web
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/maid-bot/web /etc/maid-bot/panel.htpasswd
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

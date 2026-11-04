@@ -1,0 +1,27 @@
+# Template: provision the maidbot account, install Node.js 24 at the absolute
+# path below, and grant this account write access to data/, logs/ and cache/.
+[Unit]
+Description=maid-bot OneBot AI bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=maidbot
+Group=maidbot
+WorkingDirectory=/opt/maid-bot
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node /opt/maid-bot/src/index.ts
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/maid-bot/data /opt/maid-bot/logs /opt/maid-bot/cache
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

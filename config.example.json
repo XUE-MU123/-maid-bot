@@ -1,0 +1,85 @@
+{
+  "onebot": {
+    "wsUrl": "ws://127.0.0.1:3001/",
+    "httpUrl": "http://127.0.0.1:3000",
+    "accessToken": "",
+    "reconnectMs": 3000
+  },
+  "llm": {
+    "baseUrl": "https://api.example.com/v1",
+    "apiKey": "",
+    "model": "your-model",
+    "profiles": [],
+    "fallback": {
+      "baseUrl": "",
+      "apiKey": "",
+      "model": ""
+    },
+    "temperature": 0.8,
+    "maxTokens": 2000,
+    "timeoutMs": 120000,
+    "mock": true
+  },
+  "vision": {
+    "enabled": true,
+    "model": "your-vision-model",
+    "baseUrl": "",
+    "apiKey": "",
+    "timeoutMs": 90000,
+    "maxChars": 240
+  },
+  "render": {
+    "enabled": true,
+    "tables": true,
+    "svg": true,
+    "mermaid": false,
+    "maxImages": 3,
+    "timeoutMs": 12000,
+    "tablePreset": "yuzu-deep"
+  },
+  "bot": {
+    "selfIds": [],
+    "masterRoles": {
+      "primaryId": "",
+      "secondaryId": "",
+      "dualEnabled": false
+    },
+    "masterIds": [],
+    "globalAutoReply": true,
+    "splitReply": true,
+    "maxSegmentChars": 500,
+    "sendIntervalMs": 600,
+    "historyLimit": 200,
+    "maxContextTokens": 12000,
+    "cooldownMs": 1200,
+    "triggerCooldownMs": 15000,
+    "dedupeWindowMs": 60000,
+    "autoFavor": true,
+    "dailyGainCap": 30,
+    "triggerKeywords": [
+      "助手"
+    ]
+  },
+  "persona": {
+    "systemPrompt": "你是友好、可靠的聊天助手。\n表达自然简洁，尊重不同成员；不确定时明确说明。\n群聊里不抢话，不说教；根据上下文提供有帮助的回复。",
+    "groupProactive": "群里安静了一会儿，你想主动接一句话，轻松自然，别太打扰。",
+    "privateProactive": "有一阵子没说话了，你想主动问候对方，语气友好自然。",
+    "favorHint": true
+  },
+  "defaults": {
+    "atProb": 1,
+    "keywordProb": 0.6,
+    "randomProb": 0.05
+  },
+  "panel": {
+    "host": "127.0.0.1",
+    "port": 3210
+  },
+  "logging": {
+    "level": "info",
+    "keepDays": 14
+  },
+  "storage": {
+    "dataDir": "./data"
+  }
+}
